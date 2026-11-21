@@ -1,0 +1,101 @@
+name: Build Rockbox Android APK (1920x1080)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: 0 * * * *
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java for Android SDK manager
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install legacy Android platform and build tools
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install "platform-tools" "platforms;android-19" "build-tools;19.1.0"
+
+      - name: Install Java 8 for the legacy Android build
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+
+      - name: Install host build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison flex perl zip unzip wget lib32stdc++6
+
+      - name: Install legacy NDK with ARMv5 GCC toolchain
+        run: |
+          # NDK r10e is distributed as a ZIP from the archived repository; the old .bin URL is invalid.
+          curl -fL --retry 3 -o /tmp/android-ndk-r10e-linux-x86_64.zip https://dl.google.com/android/repository/android-ndk-r10e-linux-x86_64.zip
+          unzip -q /tmp/android-ndk-r10e-linux-x86_64.zip -d "$GITHUB_WORKSPACE"
+          NDK="$GITHUB_WORKSPACE/android-ndk-r10e"
+          TOOLCHAIN="$NDK/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin"
+          test -x "$TOOLCHAIN/arm-linux-androideabi-gcc"
+          "$TOOLCHAIN/arm-linux-androideabi-gcc" --version
+          # Verify GCC can select the bundled BFD linker and emit the same map files used by codec links.
+          printf "int main(void) { return 0; }\n" | "$TOOLCHAIN/arm-linux-androideabi-gcc" --sysroot="$NDK/platforms/android-16/arch-arm" -fuse-ld=bfd -x c - -Wl,-Map,/tmp/android-bfd-test.map -o /tmp/android-bfd-test
+          test -s /tmp/android-bfd-test.map
+          echo "BFD linker selection and map-file smoke test passed."
+          echo "ANDROID_NDK_PATH=$NDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_PATH=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$NDK" >> "$GITHUB_ENV"
+
+      - name: Configure Rockbox Android target
+        run: |
+          git clone git://git.rockbox.org/rockbox
+          cd rockbox
+          mkdir -p build-android
+          cd build-android
+          ../tools/configure --target=android --lcdwidth=1920 --lcdheight=1080
+
+      - name: Build native core and codecs
+        run: |
+          cd rockbox
+          make -C build-android -j2
+
+      - name: Package Rockbox resources and APK
+        run: |
+          cd rockbox
+          make -C build-android zip
+          make -C build-android apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: rockbox-armeabi
+          path: rockbox/build-android/rockbox.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload APK
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: rockbox/build-android/rockbox.apk
+          tag: apk-1920-1080
+          overwrite: true
+          body: "Rockbox Android APK (1920x1080)"
+          file_glob: true
