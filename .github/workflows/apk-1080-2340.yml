@@ -82,16 +82,10 @@ jobs:
           make -C build-android zip
           make -C build-android apk
 
-      - name: FIND APK
-        shell: bash
-        run: |
-          cd rockbox
-          find build-android -maxdepth 1 -type f -name '*.apk' -print -quit
-
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
           name: rockbox-android13-armeabi
-          path: ${{ env.APK }}
+          path: rockbox/build-android/rockbox.apk
           if-no-files-found: error
           retention-days: 14
