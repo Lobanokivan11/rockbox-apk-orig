@@ -1,4 +1,4 @@
-name: Build Rockbox Android APK
+name: Build Rockbox Android APK (1080x2340)
 
 on:
   push:
