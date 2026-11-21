@@ -8,12 +8,10 @@ on:
   schedule:
     - cron: 0 * * * *
 
-permissions:
-  contents: read
-
 jobs:
   build:
     runs-on: ubuntu-22.04
+    permissions: write-all
     timeout-minutes: 90
     steps:
       - name: Check out source
