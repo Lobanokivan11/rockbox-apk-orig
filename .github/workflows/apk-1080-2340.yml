@@ -82,17 +82,16 @@ jobs:
           make -C build-android zip
           make -C build-android apk
 
-      - name: Verify APK package, ABI, signature, alignment and native relocations
+      - name: FIND APK
         shell: bash
         run: |
           cd rockbox
-          APK="$(find build-android -maxdepth 1 -type f -name 'rockbox-rcc-*.apk' -print -quit)"
-          echo "APK=$APK" >> "$GITHUB_ENV"
+          find build-android -maxdepth 1 -type f -name '*.apk' -print -quit)"
 
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: rockbox-rcc-android13-armeabi
+          name: rockbox-android13-armeabi
           path: ${{ env.APK }}
           if-no-files-found: error
           retention-days: 14
