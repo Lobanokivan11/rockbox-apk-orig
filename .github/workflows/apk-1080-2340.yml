@@ -82,10 +82,20 @@ jobs:
           make -C build-android zip
           make -C build-android apk
 
-      - name: Upload verified APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: rockbox-android13-armeabi
+          name: rockbox-armeabi
           path: rockbox/build-android/rockbox.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload APK
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: rockbox/build-android/rockbox.apk
+          tag: apk-1080-2340
+          overwrite: true
+          body: "Rockbox Android APK (1080x2340)"
+          file_glob: true
